@@ -6,11 +6,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"log"
 	"os"
 	"time"
 
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/cloudevents/sdk-go/v2/event"
@@ -25,7 +28,6 @@ const (
 	SFTP_HOST   = "host"
 	SFTP_PORT   = 22
 	SFTP_USER   = "user"
-	SFTP_PASS   = "password"
 	SFTP_FOLDER = "folder"
 )
 
@@ -34,11 +36,17 @@ var (
 	storageClient *storage.Client
 	sftpClient    *sftp.Client
 	bgctx         = context.Background()
+	SFTP_PASS     = ""
 )
 
 func init() {
 	// Declare a separate err variable to avoid shadowing the client variables.
 	var err error
+
+	SFTP_PASS, err = accessSecretVersion("projects/my-project/secrets/secret-name/versions/latest")
+	if err != nil {
+		log.Fatalf("failed to get secret: %v", err)
+	}
 
 	// Initialize Storage client
 	storageClient, err = storage.NewClient(bgctx)
@@ -91,9 +99,7 @@ func exportFiles(ctx context.Context, e event.Event) error {
 		return fmt.Errorf("unable download object %s from bucket %s: %v", objectName, bucketName, err)
 	}
 
-	uploadFileToSFTP(objectName, data)
-
-	return nil
+	return uploadFileToSFTP(objectName, data)
 }
 
 // downloadFileIntoMemory downloads an object.
@@ -136,4 +142,42 @@ func uploadFileToSFTP(filename string, data []byte) error {
 	log.Printf("%d bytes copied\n", bytes)
 
 	return nil
+}
+
+// accessSecretVersion accesses the payload for the given secret version if one
+// exists. The version can be a version number as a string (e.g. "5") or an
+// alias (e.g. "latest").
+func accessSecretVersion(name string) (string, error) {
+	// name := "projects/my-project/secrets/my-secret/versions/5"
+	// name := "projects/my-project/secrets/my-secret/versions/latest"
+
+	// Create the client.
+	ctx := context.Background()
+	client, err := secretmanager.NewClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to create secretmanager client: %w", err)
+	}
+	defer client.Close()
+
+	// Build the request.
+	req := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: name,
+	}
+
+	// Call the API.
+	result, err := client.AccessSecretVersion(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("failed to access secret version: %w", err)
+	}
+
+	// Verify the data checksum.
+	crc32c := crc32.MakeTable(crc32.Castagnoli)
+	checksum := int64(crc32.Checksum(result.Payload.Data, crc32c))
+	if checksum != *result.Payload.DataCrc32C {
+		return "", fmt.Errorf("data corruption detected")
+	}
+
+	secret := string(result.Payload.Data)
+
+	return secret, nil
 }
