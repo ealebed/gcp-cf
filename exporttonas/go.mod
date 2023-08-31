@@ -1,4 +1,4 @@
-module github.com/ealebed/gcp-cf/renamefile
+module github.com/ealebed/gcp-cf/exporttonas
 
 go 1.20
 
@@ -12,6 +12,7 @@ require (
 	cloud.google.com/go/compute v1.20.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.0 // indirect
+	github.com/geoffgarside/ber v1.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
@@ -33,11 +34,12 @@ require (
 )
 
 require (
+	cloud.google.com/go/secretmanager v1.11.1
 	cloud.google.com/go/storage v1.31.0
 	github.com/cloudevents/sdk-go/v2 v2.14.0
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/google-cloudevents-go v0.7.0
-	github.com/jf-tech/go-corelib v0.0.18
+	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
